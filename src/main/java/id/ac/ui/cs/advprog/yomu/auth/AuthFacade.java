@@ -30,7 +30,7 @@ public class AuthFacade {
     public boolean isTokenValid(String token) {
         try {
             String username = jwtService.extractUsername(token);
-            return userRepository.findByUsernameOrEmail(username)
+            return userRepository.findByIdentifier(username)
                     .map(user -> jwtService.isTokenValid(token))
                     .orElse(false);
         } catch (Exception e) {

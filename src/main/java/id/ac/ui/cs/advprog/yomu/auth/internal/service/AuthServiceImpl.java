@@ -9,7 +9,7 @@ import id.ac.ui.cs.advprog.yomu.auth.internal.model.Role;
 import id.ac.ui.cs.advprog.yomu.auth.internal.model.User;
 import id.ac.ui.cs.advprog.yomu.auth.internal.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,10 +27,10 @@ public class AuthServiceImpl implements AuthService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
-    private final ApplicationEventPublisher eventPublisher;
+    private final RabbitTemplate rabbitTemplate;
 
     @Override
-    @Transactional("authTransactionManager")
+    @Transactional
     public AuthResponse register(RegisterRequest request) {
         if (userRepository.existsByUsername(request.getUsername())) {
             throw new IllegalArgumentException("Username sudah terdaftar");
@@ -54,8 +54,8 @@ public class AuthServiceImpl implements AuthService {
 
         userRepository.save(user);
         
-        // Publish event for Modulith
-        eventPublisher.publishEvent(new UserRegisteredEvent(user.getId(), user.getUsername(), user.getEmail(), Instant.now()));
+        // Publish event to RabbitMQ
+        rabbitTemplate.convertAndSend("yomu.user.registered", new UserRegisteredEvent(user.getId(), user.getUsername(), user.getEmail(), Instant.now()));
 
         String jwtToken = generateTokenForUser(user);
         return AuthResponse.builder()
@@ -66,7 +66,7 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public AuthResponse login(LoginRequest request) {
-        User user = userRepository.findByUsernameOrEmail(request.getIdentifier())
+        User user = userRepository.findByIdentifier(request.getIdentifier())
                 .orElseThrow(() -> new IllegalArgumentException("Kredensial tidak valid"));
 
         if (user.getProvider() != AuthProvider.LOCAL) {
@@ -85,9 +85,9 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
-    @Transactional("authTransactionManager")
+    @Transactional
     public AuthResponse googleSsoLogin(GoogleSsoRequest request) {
-        User user = userRepository.findByUsernameOrEmail(request.getEmail())
+        User user = userRepository.findByIdentifier(request.getEmail())
                 .orElseGet(() -> {
                     // Create new user if not exists
                     User newUser = User.builder()
@@ -101,7 +101,7 @@ public class AuthServiceImpl implements AuthService {
                             .updatedAt(LocalDateTime.now())
                             .build();
                     userRepository.save(newUser);
-                    eventPublisher.publishEvent(new UserRegisteredEvent(newUser.getId(), newUser.getUsername(), newUser.getEmail(), Instant.now()));
+                    rabbitTemplate.convertAndSend("yomu.user.registered", new UserRegisteredEvent(newUser.getId(), newUser.getUsername(), newUser.getEmail(), Instant.now()));
                     return newUser;
                 });
 
@@ -113,7 +113,7 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
-    @Transactional("authTransactionManager")
+    @Transactional
     public AuthResponse updateProfile(UUID userId, UpdateProfileRequest request) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("User tidak ditemukan"));
@@ -152,7 +152,7 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
-    @Transactional("authTransactionManager")
+    @Transactional
     public void deleteAccount(UUID userId) {
         userRepository.deleteById(userId);
     }

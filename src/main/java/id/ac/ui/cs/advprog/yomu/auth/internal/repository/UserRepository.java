@@ -84,10 +84,10 @@ public class UserRepository {
         }
     }
 
-    public Optional<User> findByUsernameOrEmail(String identifier) {
-        String sql = "SELECT * FROM auth_users WHERE username = ? OR email = ?";
+    public Optional<User> findByIdentifier(String identifier) {
+        String sql = "SELECT * FROM auth_users WHERE username = ? OR email = ? OR phone = ?";
         try {
-            User user = jdbcTemplate.queryForObject(sql, userRowMapper, identifier, identifier);
+            User user = jdbcTemplate.queryForObject(sql, userRowMapper, identifier, identifier, identifier);
             return Optional.ofNullable(user);
         } catch (EmptyResultDataAccessException e) {
             return Optional.empty();

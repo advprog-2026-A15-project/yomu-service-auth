@@ -13,6 +13,8 @@ import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -23,6 +25,7 @@ import java.util.HashMap;
 @Service
 @RequiredArgsConstructor
 public class AuthServiceImpl implements AuthService {
+    private static final Logger logger = LoggerFactory.getLogger(AuthServiceImpl.class);
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
@@ -53,15 +56,15 @@ public class AuthServiceImpl implements AuthService {
                 .build();
 
         userRepository.save(user);
-        
-        // Publish event to RabbitMQ
-        rabbitTemplate.convertAndSend("yomu.user.registered", new UserRegisteredEvent(user.getId(), user.getUsername(), user.getEmail(), Instant.now()));
 
-        String jwtToken = generateTokenForUser(user);
-        return AuthResponse.builder()
-                .token(jwtToken)
-                .user(mapToDto(user))
-                .build();
+        try {
+            rabbitTemplate.convertAndSend("yomu.user.registered", new UserRegisteredEvent(user.getId(), user.getUsername(), user.getEmail(), Instant.now()));
+        } catch (Exception e) {
+            logger.warn("Failed to publish UserRegisteredEvent for userId={}: {}", user.getId(), e.getMessage());
+        }
+
+        logger.info("Manual registration succeeded for userId={}", user.getId());
+        return buildAuthResponse(user);
     }
 
     @Override
@@ -77,11 +80,8 @@ public class AuthServiceImpl implements AuthService {
             throw new IllegalArgumentException("Kredensial tidak valid");
         }
 
-        String jwtToken = generateTokenForUser(user);
-        return AuthResponse.builder()
-                .token(jwtToken)
-                .user(mapToDto(user))
-                .build();
+        logger.info("Manual login succeeded for userId={}", user.getId());
+        return buildAuthResponse(user);
     }
 
     @Override
@@ -105,11 +105,22 @@ public class AuthServiceImpl implements AuthService {
                     return newUser;
                 });
 
-        String jwtToken = generateTokenForUser(user);
-        return AuthResponse.builder()
-                .token(jwtToken)
-                .user(mapToDto(user))
-                .build();
+        logger.info("Google SSO login succeeded for userId={}", user.getId());
+        return buildAuthResponse(user);
+    }
+
+    @Override
+    public AuthResponse refreshToken(RefreshTokenRequest request) {
+        String refreshToken = request.getRefreshToken();
+        if (!jwtService.isRefreshTokenValid(refreshToken)) {
+            throw new IllegalArgumentException("Refresh token tidak valid");
+        }
+
+        UUID userId = UUID.fromString(jwtService.extractUserId(refreshToken));
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("User tidak ditemukan"));
+
+        return buildAuthResponse(user);
     }
 
     @Override
@@ -145,16 +156,15 @@ public class AuthServiceImpl implements AuthService {
         }
 
         userRepository.update(user);
-        return AuthResponse.builder()
-                .token(generateTokenForUser(user))
-                .user(mapToDto(user))
-                .build();
+        logger.info("Profile updated for userId={}", user.getId());
+        return buildAuthResponse(user);
     }
 
     @Override
     @Transactional
     public void deleteAccount(UUID userId) {
         userRepository.deleteById(userId);
+        logger.info("Account deleted for userId={}", userId);
     }
 
     private UserDto mapToDto(User user) {
@@ -172,6 +182,23 @@ public class AuthServiceImpl implements AuthService {
         Map<String, Object> extraClaims = new HashMap<>();
         extraClaims.put("id", user.getId().toString());
         extraClaims.put("role", user.getRole().name());
-        return jwtService.generateToken(user.getUsername(), extraClaims);
+        return jwtService.generateAccessToken(user.getUsername(), extraClaims);
+    }
+
+    private String generateRefreshTokenForUser(User user) {
+        Map<String, Object> extraClaims = new HashMap<>();
+        extraClaims.put("id", user.getId().toString());
+        extraClaims.put("role", user.getRole().name());
+        return jwtService.generateRefreshToken(user.getUsername(), extraClaims);
+    }
+
+    private AuthResponse buildAuthResponse(User user) {
+        String jwtToken = generateTokenForUser(user);
+        return AuthResponse.builder()
+                .token(jwtToken)
+                .refreshToken(generateRefreshTokenForUser(user))
+                .expiresAt(jwtService.extractExpirationInstant(jwtToken))
+                .user(mapToDto(user))
+                .build();
     }
 }

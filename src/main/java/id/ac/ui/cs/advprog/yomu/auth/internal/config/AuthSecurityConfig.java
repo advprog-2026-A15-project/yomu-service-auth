@@ -1,6 +1,6 @@
 package id.ac.ui.cs.advprog.yomu.auth.internal.config;
 
-import id.ac.ui.cs.advprog.yomu.shared.security.JwtAuthenticationFilter;
+import id.ac.ui.cs.advprog.yomu.shared.security.servlet.JwtAuthenticationFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

@@ -6,8 +6,10 @@ import id.ac.ui.cs.advprog.yomu.auth.internal.service.AuthService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -31,17 +33,29 @@ public class AuthController {
         return ResponseEntity.ok(authService.googleSsoLogin(request));
     }
 
+    @PostMapping("/refresh")
+    public ResponseEntity<AuthResponse> refresh(@Valid @RequestBody RefreshTokenRequest request) {
+        return ResponseEntity.ok(authService.refreshToken(request));
+    }
+
     @PutMapping("/profile")
     public ResponseEntity<AuthResponse> updateProfile(
-            @AuthenticationPrincipal User user,
+            Authentication authentication,
             @RequestBody UpdateProfileRequest request
     ) {
-        return ResponseEntity.ok(authService.updateProfile(user.getId(), request));
+        return ResponseEntity.ok(authService.updateProfile(getAuthenticatedUserId(authentication), request));
     }
 
     @DeleteMapping("/profile")
-    public ResponseEntity<Void> deleteAccount(@AuthenticationPrincipal User user) {
-        authService.deleteAccount(user.getId());
+    public ResponseEntity<Void> deleteAccount(Authentication authentication) {
+        authService.deleteAccount(getAuthenticatedUserId(authentication));
         return ResponseEntity.noContent().build();
+    }
+
+    private UUID getAuthenticatedUserId(Authentication authentication) {
+        if (authentication == null || authentication.getCredentials() == null) {
+            throw new IllegalArgumentException("User tidak terautentikasi");
+        }
+        return UUID.fromString(authentication.getCredentials().toString());
     }
 }

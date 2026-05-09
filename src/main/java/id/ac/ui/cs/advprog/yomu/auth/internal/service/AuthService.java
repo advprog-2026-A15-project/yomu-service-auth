@@ -8,6 +8,7 @@ public interface AuthService {
     AuthResponse register(RegisterRequest request);
     AuthResponse login(LoginRequest request);
     AuthResponse googleSsoLogin(GoogleSsoRequest request);
+    AuthResponse refreshToken(RefreshTokenRequest request);
     AuthResponse updateProfile(UUID userId, UpdateProfileRequest request);
     void deleteAccount(UUID userId);
 }

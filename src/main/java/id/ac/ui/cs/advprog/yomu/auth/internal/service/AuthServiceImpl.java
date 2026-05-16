@@ -87,14 +87,50 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public AuthResponse googleSsoLogin(GoogleSsoRequest request) {
-        User user = userRepository.findByIdentifier(request.getEmail())
+        if (request.getAccessToken() == null || request.getAccessToken().isEmpty()) {
+            throw new IllegalArgumentException("Access token Google tidak boleh kosong");
+        }
+
+        // Verify with Google UserInfo API
+        org.springframework.web.client.RestTemplate restTemplate = new org.springframework.web.client.RestTemplate();
+        org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
+        headers.setBearerAuth(request.getAccessToken());
+        org.springframework.http.HttpEntity<String> entity = new org.springframework.http.HttpEntity<>("parameters", headers);
+
+        String email = null;
+        String name = null;
+
+        try {
+            org.springframework.http.ResponseEntity<java.util.Map> response = restTemplate.exchange(
+                    "https://www.googleapis.com/oauth2/v3/userinfo",
+                    org.springframework.http.HttpMethod.GET,
+                    entity,
+                    java.util.Map.class
+            );
+
+            java.util.Map<String, Object> payload = response.getBody();
+            if (payload != null && payload.containsKey("email")) {
+                email = (String) payload.get("email");
+                name = (String) payload.get("name");
+            } else {
+                throw new IllegalArgumentException("Token Google tidak valid atau tidak memuat email");
+            }
+        } catch (Exception e) {
+            logger.error("Gagal memverifikasi token Google", e);
+            throw new IllegalArgumentException("Gagal memverifikasi akun Google Anda");
+        }
+
+        String finalEmail = email;
+        String finalName = name;
+
+        User user = userRepository.findByIdentifier(finalEmail)
                 .orElseGet(() -> {
                     // Create new user if not exists
                     User newUser = User.builder()
                             .id(UUID.randomUUID())
-                            .username(request.getUsername() != null ? request.getUsername() : request.getEmail().split("@")[0])
-                            .email(request.getEmail())
-                            .displayName(request.getDisplayName())
+                            .username(finalEmail.split("@")[0])
+                            .email(finalEmail)
+                            .displayName(finalName != null ? finalName : "Google User")
                             .role(Role.PELAJAR)
                             .provider(AuthProvider.GOOGLE)
                             .createdAt(LocalDateTime.now())

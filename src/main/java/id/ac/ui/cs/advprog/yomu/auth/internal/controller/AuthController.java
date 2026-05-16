@@ -53,9 +53,9 @@ public class AuthController {
     }
 
     private UUID getAuthenticatedUserId(Authentication authentication) {
-        if (authentication == null || authentication.getCredentials() == null) {
+        if (authentication == null || authentication.getPrincipal() == null) {
             throw new IllegalArgumentException("User tidak terautentikasi");
         }
-        return UUID.fromString(authentication.getCredentials().toString());
+        return UUID.fromString(authentication.getPrincipal().toString());
     }
 }

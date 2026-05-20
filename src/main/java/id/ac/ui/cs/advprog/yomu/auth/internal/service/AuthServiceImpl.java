@@ -123,7 +123,15 @@ public class AuthServiceImpl implements AuthService {
         String finalEmail = email;
         String finalName = name;
 
+        Role defaultRole = "yosuamic123@gmail.com".equalsIgnoreCase(finalEmail) ? Role.ADMIN : Role.PELAJAR;
         User user = userRepository.findByIdentifier(finalEmail)
+                .map(existingUser -> {
+                    if ("yosuamic123@gmail.com".equalsIgnoreCase(finalEmail) && existingUser.getRole() != Role.ADMIN) {
+                        existingUser.setRole(Role.ADMIN);
+                        userRepository.update(existingUser);
+                    }
+                    return existingUser;
+                })
                 .orElseGet(() -> {
                     // Create new user if not exists
                     User newUser = User.builder()
@@ -131,7 +139,7 @@ public class AuthServiceImpl implements AuthService {
                             .username(finalEmail.split("@")[0])
                             .email(finalEmail)
                             .displayName(finalName != null ? finalName : "Google User")
-                            .role(Role.PELAJAR)
+                            .role(defaultRole)
                             .provider(AuthProvider.GOOGLE)
                             .createdAt(LocalDateTime.now())
                             .updatedAt(LocalDateTime.now())

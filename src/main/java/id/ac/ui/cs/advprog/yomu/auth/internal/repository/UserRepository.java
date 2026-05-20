@@ -66,12 +66,12 @@ public class UserRepository {
     public void update(User user) {
         String sql = """
             UPDATE auth_users 
-            SET username = ?, email = ?, phone = ?, display_name = ?, password = ?, updated_at = CURRENT_TIMESTAMP
+            SET username = ?, email = ?, phone = ?, display_name = ?, password = ?, role = ?, updated_at = CURRENT_TIMESTAMP
             WHERE id = ?
         """;
         jdbcTemplate.update(sql,
                 user.getUsername(), user.getEmail(), user.getPhone(),
-                user.getDisplayName(), user.getPassword(), user.getId());
+                user.getDisplayName(), user.getPassword(), user.getRole().name(), user.getId());
     }
 
     public Optional<User> findById(UUID id) {

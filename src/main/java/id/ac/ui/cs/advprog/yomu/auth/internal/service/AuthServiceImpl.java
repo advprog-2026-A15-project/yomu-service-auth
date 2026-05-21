@@ -27,6 +27,12 @@ import java.util.HashMap;
 public class AuthServiceImpl implements AuthService {
     private static final Logger logger = LoggerFactory.getLogger(AuthServiceImpl.class);
 
+    private static final java.util.Set<String> ADMIN_EMAILS = java.util.Set.of(
+            "christna.yosua@ui.ac.id",
+            "tirta.rendy@ui.ac.id",
+            "nathanael.leander@ui.ac.id"
+    );
+
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
@@ -123,10 +129,11 @@ public class AuthServiceImpl implements AuthService {
         String finalEmail = email;
         String finalName = name;
 
-        Role defaultRole = "yosuamic123@gmail.com".equalsIgnoreCase(finalEmail) ? Role.ADMIN : Role.PELAJAR;
+        boolean isAdmin = ADMIN_EMAILS.stream().anyMatch(e -> e.equalsIgnoreCase(finalEmail));
+        Role defaultRole = isAdmin ? Role.ADMIN : Role.PELAJAR;
         User user = userRepository.findByIdentifier(finalEmail)
                 .map(existingUser -> {
-                    if ("yosuamic123@gmail.com".equalsIgnoreCase(finalEmail) && existingUser.getRole() != Role.ADMIN) {
+                    if (isAdmin && existingUser.getRole() != Role.ADMIN) {
                         existingUser.setRole(Role.ADMIN);
                         userRepository.update(existingUser);
                     }

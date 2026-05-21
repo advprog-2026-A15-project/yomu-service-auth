@@ -13,12 +13,14 @@ import id.ac.ui.cs.advprog.yomu.shared.security.JwtService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -28,11 +30,8 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class AuthServiceImpl implements AuthService {
 
-    private static final java.util.Set<String> ADMIN_EMAILS = java.util.Set.of(
-            "christna.yosua@ui.ac.id",
-            "tirta.rendy@ui.ac.id",
-            "nathanael.leander@ui.ac.id"
-    );
+    @Value("${yomu.admin.emails:christna.yosua@ui.ac.id,christian.yosua@ui.ac.id,tirta.rendy@ui.ac.id,nathanael.leander@ui.ac.id}")
+    private String adminEmails;
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
@@ -52,7 +51,7 @@ public class AuthServiceImpl implements AuthService {
                 .phone(request.getPhone())
                 .displayName(request.getDisplayName())
                 .password(passwordEncoder.encode(request.getPassword()))
-                .role(Role.PELAJAR)
+                .role(resolveDefaultRole(request.getEmail()))
                 .provider(AuthProvider.LOCAL)
                 .createdAt(LocalDateTime.now())
                 .updatedAt(LocalDateTime.now())
@@ -78,6 +77,7 @@ public class AuthServiceImpl implements AuthService {
             throw new IllegalArgumentException("Kredensial tidak valid");
         }
 
+        promoteConfiguredAdmin(user);
         log.info("Manual login succeeded for userId={}", user.getId());
         return buildAuthResponse(user);
     }
@@ -89,29 +89,20 @@ public class AuthServiceImpl implements AuthService {
         String email = userInfo.get("email");
         String name = userInfo.get("name");
 
-        boolean isAdmin = ADMIN_EMAILS.stream().anyMatch(e -> e.equalsIgnoreCase(email));
-        Role defaultRole = isAdmin ? Role.ADMIN : Role.PELAJAR;
+        Role defaultRole = resolveDefaultRole(email);
 
         User user = userRepository.findByIdentifier(email)
-                .map(existingUser -> handleExistingGoogleUser(existingUser, isAdmin))
+                .map(this::promoteConfiguredAdmin)
                 .orElseGet(() -> createNewGoogleUser(email, name, defaultRole));
 
         log.info("Google SSO login succeeded for userId={}", user.getId());
         return buildAuthResponse(user);
     }
 
-    private User handleExistingGoogleUser(User existingUser, boolean shouldBeAdmin) {
-        if (shouldBeAdmin && existingUser.getRole() != Role.ADMIN) {
-            existingUser.setRole(Role.ADMIN);
-            userRepository.update(existingUser);
-        }
-        return existingUser;
-    }
-
     private User createNewGoogleUser(String email, String name, Role role) {
         User newUser = User.builder()
                 .id(UUID.randomUUID())
-                .username(email.split("@")[0])
+                .username(generateUniqueUsername(email.split("@")[0]))
                 .email(email)
                 .displayName(name != null ? name : "Google User")
                 .role(role)
@@ -122,6 +113,13 @@ public class AuthServiceImpl implements AuthService {
         userRepository.save(newUser);
         publishUserRegisteredEvent(newUser);
         return newUser;
+    }
+
+    private String generateUniqueUsername(String base) {
+        if (!userRepository.existsByUsername(base)) return base;
+        int i = 2;
+        while (userRepository.existsByUsername(base + i)) i++;
+        return base + i;
     }
 
     @Override
@@ -135,6 +133,7 @@ public class AuthServiceImpl implements AuthService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("User tidak ditemukan"));
 
+        promoteConfiguredAdmin(user);
         return buildAuthResponse(user);
     }
 
@@ -146,7 +145,8 @@ public class AuthServiceImpl implements AuthService {
 
         updateUserDetails(user, request);
         userRepository.update(user);
-        
+        promoteConfiguredAdmin(user);
+
         log.info("Profile updated for userId={}", user.getId());
         return buildAuthResponse(user);
     }
@@ -171,6 +171,29 @@ public class AuthServiceImpl implements AuthService {
         if (request.getPassword() != null && !request.getPassword().isEmpty()) {
             user.setPassword(passwordEncoder.encode(request.getPassword()));
         }
+    }
+
+    private Role resolveDefaultRole(String email) {
+        return isConfiguredAdminEmail(email) ? Role.ADMIN : Role.PELAJAR;
+    }
+
+    private User promoteConfiguredAdmin(User user) {
+        if (isConfiguredAdminEmail(user.getEmail()) && user.getRole() != Role.ADMIN) {
+            user.setRole(Role.ADMIN);
+            userRepository.update(user);
+        }
+        return user;
+    }
+
+    private boolean isConfiguredAdminEmail(String email) {
+        if (email == null || email.isBlank()) {
+            return false;
+        }
+        String configuredEmails = adminEmails == null ? "" : adminEmails;
+        return Arrays.stream(configuredEmails.split(","))
+                .map(String::trim)
+                .filter(value -> !value.isEmpty())
+                .anyMatch(value -> value.equalsIgnoreCase(email));
     }
 
     @Override

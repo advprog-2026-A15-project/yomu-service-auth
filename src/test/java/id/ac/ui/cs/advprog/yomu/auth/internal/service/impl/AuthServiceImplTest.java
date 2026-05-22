@@ -375,6 +375,52 @@ class AuthServiceImplTest {
     }
 
     @Test
+    void updateProfile_updateAllFields_success() {
+        User user = localUser(EMAIL, "encoded-" + PASSWORD);
+        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
+        when(userRepository.existsByEmail("new@example.com")).thenReturn(false);
+
+        UpdateProfileRequest request = new UpdateProfileRequest();
+        request.setEmail("new@example.com");
+        request.setPhone("987654321");
+        request.setDisplayName("New Name");
+        request.setPassword("newpass");
+
+        AuthResponse response = authService.updateProfile(USER_ID, request);
+
+        assertThat(response.getUser().getEmail()).isEqualTo("new@example.com");
+        assertThat(response.getUser().getPhone()).isEqualTo("987654321");
+        assertThat(response.getUser().getDisplayName()).isEqualTo("New Name");
+        verify(userRepository).update(any(User.class));
+        verify(passwordEncoder).encode("newpass");
+    }
+
+    @Test
+    void updateProfile_duplicateEmail_throws() {
+        User user = localUser(EMAIL, "encoded-" + PASSWORD);
+        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
+        when(userRepository.existsByEmail("taken@example.com")).thenReturn(true);
+
+        UpdateProfileRequest request = new UpdateProfileRequest();
+        request.setEmail("taken@example.com");
+
+        assertThatThrownBy(() -> authService.updateProfile(USER_ID, request))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Email sudah terdaftar");
+    }
+
+    @Test
+    void updateProfile_userNotFound_throws() {
+        when(userRepository.findById(USER_ID)).thenReturn(Optional.empty());
+
+        UpdateProfileRequest request = new UpdateProfileRequest();
+
+        assertThatThrownBy(() -> authService.updateProfile(USER_ID, request))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("User tidak ditemukan");
+    }
+
+    @Test
     void deleteAccount_deletesById() {
         authService.deleteAccount(USER_ID);
 

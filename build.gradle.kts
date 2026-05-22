@@ -47,13 +47,45 @@ tasks.withType<Test> {
     finalizedBy(tasks.jacocoTestReport)
 }
 
+val jacocoCoverageExcludes = listOf(
+    "**/config/**",
+    "**/configuration/**",
+    "**/repository/**",
+    "**/listener/**",
+    "**/internal/controller/**",
+    "**/*Application.class",
+    "**/exception/**",
+)
+
 tasks.jacocoTestReport {
     dependsOn(tasks.test)
+    classDirectories.setFrom(
+        sourceSets.main.get().output.classesDirs.files.map { dir ->
+            fileTree(dir) { exclude(jacocoCoverageExcludes) }
+        },
+    )
     reports {
         xml.required.set(true)
         csv.required.set(false)
         html.required.set(true)
     }
+}
+
+tasks.jacocoTestCoverageVerification {
+    dependsOn(tasks.jacocoTestReport)
+    classDirectories.setFrom(tasks.jacocoTestReport.get().classDirectories)
+    violationRules {
+        rule {
+            limit {
+                counter = "INSTRUCTION"
+                minimum = 0.80.toBigDecimal()
+            }
+        }
+    }
+}
+
+tasks.check {
+    dependsOn(tasks.jacocoTestCoverageVerification)
 }
 
 sonar {

@@ -100,6 +100,9 @@ Melalui JFR, saya menyimulasikan ratusan _request_ `POST /api/auth/login` dan `/
 
 ### Analisis Improvement (Perbaikan)
 
+![Visualisasi Profiling JFR](./profiling/jfr-snapshot.png)
+*(Catatan: Letakkan file hasil screenshot grafik IntelliJ IDEA Anda ke dalam folder `profiling/` dengan nama `jfr-snapshot.png`)*
+
 Dari hasil *profiling*, saya menemukan beberapa insight:
 1. **BCrypt Mendominasi CPU**: Sebanyak 65.2% sampel CPU tersedot oleh operasi `BCrypt.hashpw`. Karena *cost factor* saya saat ini adalah 10 (standar), latensi *login* mencapai rata-rata 450ms. Ini wajar dan bagus dari sisi keamanan untuk menghambat serangan _brute-force_.
 2. **Kelemahan jika di-Scale**: Apabila nanti lalu lintas registrasi/login membludak, CPU akan menjadi *bottleneck* utama saya. 

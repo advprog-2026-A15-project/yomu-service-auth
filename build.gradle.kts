@@ -90,8 +90,8 @@ tasks.check {
 
 sonar {
     properties {
-        property("sonar.projectKey", "yomu-app-service-auth")
-        // property("sonar.organization", "your-organization-key") // Uncomment if using SonarCloud
+        property("sonar.projectKey", "advprog-2026-A15-project_yomu-service-auth")
+        property("sonar.organization", "advprog-2026-a15-project")
         property("sonar.host.url", System.getenv("SONAR_HOST_URL") ?: "https://sonarcloud.io")
         property("sonar.token", System.getenv("SONAR_TOKEN") ?: "")
         property("sonar.coverage.jacoco.xmlReportPaths", "${layout.buildDirectory.get()}/reports/jacoco/test/jacocoTestReport.xml")

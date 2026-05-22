@@ -16,7 +16,15 @@ import java.util.Map;
 @Service
 public class GoogleSsoServiceImpl implements GoogleSsoService {
 
-    private final RestTemplate restTemplate = new RestTemplate();
+    private final RestTemplate restTemplate;
+
+    public GoogleSsoServiceImpl() {
+        this(new RestTemplate());
+    }
+
+    GoogleSsoServiceImpl(RestTemplate restTemplate) {
+        this.restTemplate = restTemplate;
+    }
 
     @Override
     public Map<String, String> verifyToken(String accessToken) {

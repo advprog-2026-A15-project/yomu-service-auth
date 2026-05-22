@@ -1,0 +1,36 @@
+name: Deploy to Render and EC2
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy-to-render:
+    name: Trigger Render Deployment
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Render Deploy Hook
+        run: |
+          if [ -n "${{ secrets.RENDER_DEPLOY_HOOK }}" ]; then
+            curl -X POST "${{ secrets.RENDER_DEPLOY_HOOK }}"
+            echo "Triggered Render deployment."
+          else
+            echo "RENDER_DEPLOY_HOOK is not set. Skipping Render deployment."
+          fi
+
+  deploy-to-ec2:
+    name: Deploy to AWS EC2
+    runs-on: ubuntu-latest
+    steps:
+      - name: SSH and Deploy
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            cd ~/yomu-app
+            git pull origin main
+            docker compose -f docker-compose.deploy.yml build --no-cache service-auth
+            docker compose -f docker-compose.deploy.yml up -d service-auth

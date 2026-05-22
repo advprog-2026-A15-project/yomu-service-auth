@@ -32,5 +32,6 @@ jobs:
           script: |
             cd ~/yomu-app
             git pull origin main
+            git submodule update --remote service-auth
             docker compose -f docker-compose.deploy.yml build --no-cache service-auth
             docker compose -f docker-compose.deploy.yml up -d service-auth

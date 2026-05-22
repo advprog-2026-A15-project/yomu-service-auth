@@ -4,6 +4,7 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -14,11 +15,13 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Component
+@RequiredArgsConstructor
 public class AuthRateLimitFilter extends OncePerRequestFilter {
     private static final int MAX_REQUESTS_PER_WINDOW = 20;
     private static final long WINDOW_SECONDS = 60;
 
     private final Map<String, WindowCounter> counters = new ConcurrentHashMap<>();
+    private final id.ac.ui.cs.advprog.yomu.auth.internal.monitoring.AuthMetrics authMetrics;
 
     @Override
     protected void doFilterInternal(
@@ -40,6 +43,7 @@ public class AuthRateLimitFilter extends OncePerRequestFilter {
         });
 
         if (counter.count() > MAX_REQUESTS_PER_WINDOW) {
+            authMetrics.recordRateLimitHit();
             response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
             response.getWriter().write("Terlalu banyak request. Coba lagi nanti.");
             return;

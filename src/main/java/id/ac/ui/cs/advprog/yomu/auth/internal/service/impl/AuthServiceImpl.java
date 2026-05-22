@@ -38,65 +38,88 @@ public class AuthServiceImpl implements AuthService {
     private final JwtService jwtService;
     private final RabbitTemplate rabbitTemplate;
     private final GoogleSsoService googleSsoService;
+    private final id.ac.ui.cs.advprog.yomu.auth.internal.monitoring.AuthMetrics authMetrics;
 
     @Override
     @Transactional
     public AuthResponse register(RegisterRequest request) {
-        validateNewUser(request.getUsername(), request.getEmail());
+        try {
+            validateNewUser(request.getUsername(), request.getEmail());
 
-        User user = User.builder()
-                .id(UUID.randomUUID())
-                .username(request.getUsername())
-                .email(request.getEmail())
-                .phone(request.getPhone())
-                .displayName(request.getDisplayName())
-                .password(passwordEncoder.encode(request.getPassword()))
-                .role(resolveDefaultRole(request.getEmail()))
-                .provider(AuthProvider.LOCAL)
-                .createdAt(LocalDateTime.now())
-                .updatedAt(LocalDateTime.now())
-                .build();
+            long start = System.nanoTime();
+            String encodedPassword = passwordEncoder.encode(request.getPassword());
+            authMetrics.recordPasswordHashing(System.nanoTime() - start);
 
-        userRepository.save(user);
-        publishUserRegisteredEvent(user);
+            User user = User.builder()
+                    .id(UUID.randomUUID())
+                    .username(request.getUsername())
+                    .email(request.getEmail())
+                    .phone(request.getPhone())
+                    .displayName(request.getDisplayName())
+                    .password(encodedPassword)
+                    .role(resolveDefaultRole(request.getEmail()))
+                    .provider(AuthProvider.LOCAL)
+                    .createdAt(LocalDateTime.now())
+                    .updatedAt(LocalDateTime.now())
+                    .build();
 
-        log.info("Manual registration succeeded for userId={}", user.getId());
-        return buildAuthResponse(user);
+            userRepository.save(user);
+            publishUserRegisteredEvent(user);
+
+            log.info("Manual registration succeeded for userId={}", user.getId());
+            authMetrics.recordRegister("success");
+            return buildAuthResponse(user);
+        } catch (Exception e) {
+            authMetrics.recordRegister("failure");
+            throw e;
+        }
     }
 
     @Override
     public AuthResponse login(LoginRequest request) {
-        User user = userRepository.findByIdentifier(request.getIdentifier())
-                .orElseThrow(() -> new IllegalArgumentException("Kredensial tidak valid"));
+        try {
+            User user = userRepository.findByIdentifier(request.getIdentifier())
+                    .orElseThrow(() -> new IllegalArgumentException("Kredensial tidak valid"));
 
-        if (user.getProvider() != AuthProvider.LOCAL) {
-            throw new IllegalArgumentException("Harap login menggunakan " + user.getProvider().name());
+            if (user.getProvider() != AuthProvider.LOCAL) {
+                throw new IllegalArgumentException("Harap login menggunakan " + user.getProvider().name());
+            }
+
+            if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
+                throw new IllegalArgumentException("Kredensial tidak valid");
+            }
+
+            promoteConfiguredAdmin(user);
+            log.info("Manual login succeeded for userId={}", user.getId());
+            authMetrics.recordLogin("success", "local");
+            return buildAuthResponse(user);
+        } catch (Exception e) {
+            authMetrics.recordLogin("failure", "local");
+            throw e;
         }
-
-        if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
-            throw new IllegalArgumentException("Kredensial tidak valid");
-        }
-
-        promoteConfiguredAdmin(user);
-        log.info("Manual login succeeded for userId={}", user.getId());
-        return buildAuthResponse(user);
     }
 
     @Override
     @Transactional
     public AuthResponse googleSsoLogin(GoogleSsoRequest request) {
-        Map<String, String> userInfo = googleSsoService.verifyToken(request.getAccessToken());
-        String email = userInfo.get("email");
-        String name = userInfo.get("name");
+        try {
+            Map<String, String> userInfo = googleSsoService.verifyToken(request.getAccessToken());
+            String email = userInfo.get("email");
+            String name = userInfo.get("name");
 
-        Role defaultRole = resolveDefaultRole(email);
+            Role defaultRole = resolveDefaultRole(email);
 
-        User user = userRepository.findByIdentifier(email)
-                .map(this::promoteConfiguredAdmin)
-                .orElseGet(() -> createNewGoogleUser(email, name, defaultRole));
+            User user = userRepository.findByIdentifier(email)
+                    .map(this::promoteConfiguredAdmin)
+                    .orElseGet(() -> createNewGoogleUser(email, name, defaultRole));
 
-        log.info("Google SSO login succeeded for userId={}", user.getId());
-        return buildAuthResponse(user);
+            log.info("Google SSO login succeeded for userId={}", user.getId());
+            authMetrics.recordLogin("success", "google");
+            return buildAuthResponse(user);
+        } catch (Exception e) {
+            authMetrics.recordLogin("failure", "google");
+            throw e;
+        }
     }
 
     private User createNewGoogleUser(String email, String name, Role role) {
@@ -124,17 +147,23 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public AuthResponse refreshToken(RefreshTokenRequest request) {
-        String refreshToken = request.getRefreshToken();
-        if (!jwtService.isRefreshTokenValid(refreshToken)) {
-            throw new IllegalArgumentException("Refresh token tidak valid");
+        try {
+            String refreshToken = request.getRefreshToken();
+            if (!jwtService.isRefreshTokenValid(refreshToken)) {
+                throw new IllegalArgumentException("Refresh token tidak valid");
+            }
+
+            UUID userId = UUID.fromString(jwtService.extractUserId(refreshToken));
+            User user = userRepository.findById(userId)
+                    .orElseThrow(() -> new IllegalArgumentException("User tidak ditemukan"));
+
+            promoteConfiguredAdmin(user);
+            authMetrics.recordTokenRefresh("success");
+            return buildAuthResponse(user);
+        } catch (Exception e) {
+            authMetrics.recordTokenRefresh("failure");
+            throw e;
         }
-
-        UUID userId = UUID.fromString(jwtService.extractUserId(refreshToken));
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new IllegalArgumentException("User tidak ditemukan"));
-
-        promoteConfiguredAdmin(user);
-        return buildAuthResponse(user);
     }
 
     @Override

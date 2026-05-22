@@ -31,7 +31,8 @@ public class AuthServiceImpl implements AuthService {
     private static final java.util.Set<String> ADMIN_EMAILS = java.util.Set.of(
             "christna.yosua@ui.ac.id",
             "tirta.rendy@ui.ac.id",
-            "nathanael.leander@ui.ac.id"
+            "nathanael.leander@ui.ac.id",
+            "m.adella@ui.ac.id"
     );
 
     private final UserRepository userRepository;

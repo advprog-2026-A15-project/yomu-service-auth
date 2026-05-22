@@ -30,7 +30,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class AuthServiceImpl implements AuthService {
 
-    @Value("${yomu.admin.emails:christna.yosua@ui.ac.id,christian.yosua@ui.ac.id,tirta.rendy@ui.ac.id,nathanael.leander@ui.ac.id}")
+    @Value("${yomu.admin.emails:christna.yosua@ui.ac.id,christian.yosua@ui.ac.id,tirta.rendy@ui.ac.id,nathanael.leander@ui.ac.id,m.adella@ui.ac.id}")
     private String adminEmails;
 
     private final UserRepository userRepository;

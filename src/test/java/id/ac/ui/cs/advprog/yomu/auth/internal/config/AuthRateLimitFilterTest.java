@@ -1,5 +1,6 @@
 package id.ac.ui.cs.advprog.yomu.auth.internal.config;
 
+import id.ac.ui.cs.advprog.yomu.auth.internal.monitoring.AuthMetrics;
 import jakarta.servlet.FilterChain;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -14,10 +15,12 @@ import static org.mockito.Mockito.verify;
 class AuthRateLimitFilterTest {
 
     private AuthRateLimitFilter filter;
+    private AuthMetrics authMetrics;
 
     @BeforeEach
     void setUp() {
-        filter = new AuthRateLimitFilter();
+        authMetrics = mock(AuthMetrics.class);
+        filter = new AuthRateLimitFilter(authMetrics);
     }
 
     @Test
@@ -58,6 +61,7 @@ class AuthRateLimitFilterTest {
             } else {
                 assertThat(response.getStatus()).isEqualTo(HttpStatus.TOO_MANY_REQUESTS.value());
                 assertThat(response.getContentAsString()).contains("Terlalu banyak");
+                verify(authMetrics).recordRateLimitHit();
             }
         }
     }

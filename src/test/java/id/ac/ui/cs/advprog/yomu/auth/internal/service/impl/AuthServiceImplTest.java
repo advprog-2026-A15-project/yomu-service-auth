@@ -9,6 +9,7 @@ import id.ac.ui.cs.advprog.yomu.auth.internal.dto.UpdateProfileRequest;
 import id.ac.ui.cs.advprog.yomu.auth.internal.model.AuthProvider;
 import id.ac.ui.cs.advprog.yomu.auth.internal.model.Role;
 import id.ac.ui.cs.advprog.yomu.auth.internal.model.User;
+import id.ac.ui.cs.advprog.yomu.auth.internal.monitoring.AuthMetrics;
 import id.ac.ui.cs.advprog.yomu.auth.internal.repository.UserRepository;
 import id.ac.ui.cs.advprog.yomu.auth.internal.service.GoogleSsoService;
 import id.ac.ui.cs.advprog.yomu.shared.event.UserRegisteredEvent;
@@ -22,6 +23,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -62,6 +64,7 @@ class AuthServiceImplTest {
     private GoogleSsoService googleSsoService;
 
     private JwtService jwtService;
+    private AuthMetrics authMetrics;
     private AuthServiceImpl authService;
 
     @BeforeEach
@@ -70,9 +73,10 @@ class AuthServiceImplTest {
         ReflectionTestUtils.setField(jwtService, "secretKey", TEST_SECRET);
         ReflectionTestUtils.setField(jwtService, "jwtExpiration", 86_400_000L);
         ReflectionTestUtils.setField(jwtService, "refreshExpiration", 604_800_000L);
+        authMetrics = new AuthMetrics(new SimpleMeterRegistry());
 
         authService = new AuthServiceImpl(
-                userRepository, passwordEncoder, jwtService, rabbitTemplate, googleSsoService);
+                userRepository, passwordEncoder, jwtService, rabbitTemplate, googleSsoService, authMetrics);
         ReflectionTestUtils.setField(authService, "adminEmails", "admin@test.com");
 
         when(passwordEncoder.encode(anyString())).thenAnswer(invocation -> "encoded-" + invocation.getArgument(0));

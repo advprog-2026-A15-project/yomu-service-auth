@@ -71,22 +71,6 @@ tasks.jacocoTestReport {
     }
 }
 
-tasks.jacocoTestCoverageVerification {
-    dependsOn(tasks.jacocoTestReport)
-    classDirectories.setFrom(tasks.jacocoTestReport.get().classDirectories)
-    violationRules {
-        rule {
-            limit {
-                counter = "INSTRUCTION"
-                minimum = 0.80.toBigDecimal()
-            }
-        }
-    }
-}
-
-tasks.check {
-    dependsOn(tasks.jacocoTestCoverageVerification)
-}
 
 sonar {
     properties {

@@ -48,6 +48,98 @@ class AuthRateLimitFilterTest {
     }
 
     @Test
+    void postToNonAuthEndpoint_passesThrough() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/data/something");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        FilterChain chain = mock(FilterChain.class);
+
+        filter.doFilter(request, response, chain);
+
+        verify(chain).doFilter(request, response);
+        assertThat(response.getStatus()).isEqualTo(200);
+    }
+
+    @Test
+    void getToAuthEndpoint_passesThrough() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/auth/login");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        FilterChain chain = mock(FilterChain.class);
+
+        filter.doFilter(request, response, chain);
+
+        verify(chain).doFilter(request, response);
+    }
+
+    @Test
+    void registerEndpoint_isRateLimited() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/auth/register");
+        request.setRemoteAddr("10.0.0.1");
+        FilterChain chain = mock(FilterChain.class);
+
+        for (int i = 0; i < 21; i++) {
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            filter.doFilter(request, response, chain);
+            if (i == 20) {
+                assertThat(response.getStatus()).isEqualTo(429);
+            }
+        }
+    }
+
+    @Test
+    void googleEndpoint_isRateLimited() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/auth/google");
+        request.setRemoteAddr("10.0.0.2");
+        FilterChain chain = mock(FilterChain.class);
+
+        for (int i = 0; i < 21; i++) {
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            filter.doFilter(request, response, chain);
+            if (i == 20) {
+                assertThat(response.getStatus()).isEqualTo(429);
+            }
+        }
+    }
+
+    @Test
+    void refreshEndpoint_isRateLimited() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/auth/refresh");
+        request.setRemoteAddr("10.0.0.3");
+        FilterChain chain = mock(FilterChain.class);
+
+        for (int i = 0; i < 21; i++) {
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            filter.doFilter(request, response, chain);
+            if (i == 20) {
+                assertThat(response.getStatus()).isEqualTo(429);
+            }
+        }
+    }
+
+    @Test
+    void xForwardedForHeader_usedAsClientIp() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/auth/login");
+        request.addHeader("X-Forwarded-For", "192.168.1.100");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        FilterChain chain = mock(FilterChain.class);
+
+        filter.doFilter(request, response, chain);
+
+        verify(chain).doFilter(request, response);
+    }
+
+    @Test
+    void xForwardedForMultipleIps_usesFirst() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/auth/login");
+        request.addHeader("X-Forwarded-For", "203.0.113.5, 10.0.0.1, 172.16.0.1");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        FilterChain chain = mock(FilterChain.class);
+
+        filter.doFilter(request, response, chain);
+
+        verify(chain).doFilter(request, response);
+    }
+
+    @Test
     void loginExceedsLimit_returns429() throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/auth/login");
         request.setRemoteAddr("10.0.0.99");

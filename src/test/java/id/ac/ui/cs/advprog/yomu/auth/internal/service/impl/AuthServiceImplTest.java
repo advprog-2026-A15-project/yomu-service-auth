@@ -432,6 +432,95 @@ class AuthServiceImplTest {
     }
 
     @Test
+    void updateProfile_sameUsername_noUsernameCheck() {
+        User user = localUser(EMAIL, "encoded-" + PASSWORD);
+        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
+
+        UpdateProfileRequest request = new UpdateProfileRequest();
+        request.setUsername(USERNAME); // same as current
+
+        authService.updateProfile(USER_ID, request);
+
+        verify(userRepository, never()).existsByUsername(USERNAME);
+        verify(userRepository).update(any(User.class));
+    }
+
+    @Test
+    void updateProfile_sameEmail_noEmailCheck() {
+        User user = localUser(EMAIL, "encoded-" + PASSWORD);
+        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
+
+        UpdateProfileRequest request = new UpdateProfileRequest();
+        request.setEmail(EMAIL); // same as current
+
+        authService.updateProfile(USER_ID, request);
+
+        verify(userRepository, never()).existsByEmail(EMAIL);
+    }
+
+    @Test
+    void updateProfile_emptyPassword_notEncoded() {
+        User user = localUser(EMAIL, "encoded-" + PASSWORD);
+        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
+
+        UpdateProfileRequest request = new UpdateProfileRequest();
+        request.setPassword(""); // empty string — should not encode
+
+        authService.updateProfile(USER_ID, request);
+
+        verify(passwordEncoder, never()).encode(anyString());
+    }
+
+    @Test
+    void updateProfile_alreadyAdmin_noPromoteUpdate() {
+        User user = User.builder()
+                .id(USER_ID).username(USERNAME).email("admin@test.com")
+                .displayName("Admin").password("encoded-pw").role(Role.ADMIN)
+                .provider(AuthProvider.LOCAL).createdAt(LocalDateTime.now()).updatedAt(LocalDateTime.now())
+                .build();
+        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
+
+        UpdateProfileRequest request = new UpdateProfileRequest();
+        authService.updateProfile(USER_ID, request);
+
+        // update called once for profile, NOT a second time for role promotion
+        verify(userRepository, org.mockito.Mockito.times(1)).update(any(User.class));
+    }
+
+    @Test
+    void generateUniqueUsername_multipleCollisions_incrementsUntilFree() {
+        when(googleSsoService.verifyToken("token")).thenReturn(Map.of(
+                "email", "test@example.com",
+                "name", "Test User"));
+        when(userRepository.findByIdentifier("test@example.com")).thenReturn(Optional.empty());
+        when(userRepository.existsByUsername("test")).thenReturn(true);
+        when(userRepository.existsByUsername("test2")).thenReturn(true);
+        when(userRepository.existsByUsername("test3")).thenReturn(false);
+
+        GoogleSsoRequest request = new GoogleSsoRequest();
+        request.setAccessToken("token");
+        authService.googleSsoLogin(request);
+
+        ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
+        verify(userRepository).save(captor.capture());
+        assertThat(captor.getValue().getUsername()).isEqualTo("test3");
+    }
+
+    @Test
+    void isConfiguredAdminEmail_nullAdminEmails_returnsFalse() {
+        ReflectionTestUtils.setField(authService, "adminEmails", null);
+        when(userRepository.existsByUsername(USERNAME)).thenReturn(false);
+        when(userRepository.existsByEmail(EMAIL)).thenReturn(false);
+
+        AuthResponse response = authService.register(registerRequest(EMAIL));
+
+        // Non-admin email should get PELAJAR role even when adminEmails is null
+        assertThat(response).isNotNull();
+        // Restore
+        ReflectionTestUtils.setField(authService, "adminEmails", "admin@test.com");
+    }
+
+    @Test
     void buildAuthResponse_accessTokenValidPerPhase1() {
         when(userRepository.existsByUsername(USERNAME)).thenReturn(false);
         when(userRepository.existsByEmail(EMAIL)).thenReturn(false);

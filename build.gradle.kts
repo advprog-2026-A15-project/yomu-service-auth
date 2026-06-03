@@ -22,8 +22,11 @@ repositories {
     mavenCentral()
 }
 
+val sharedLibVersion = "0.0.1-SNAPSHOT"
+val grpcServerVersion = "3.1.0.RELEASE"
+
 dependencies {
-    implementation("id.ac.ui.cs.advprog.yomu:shared-lib:0.0.1-SNAPSHOT")
+    implementation("id.ac.ui.cs.advprog.yomu:shared-lib:${sharedLibVersion}")
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.springframework.boot:spring-boot-starter-security")
     implementation("org.springframework.boot:spring-boot-starter-jdbc")
@@ -33,7 +36,7 @@ dependencies {
     implementation("io.micrometer:micrometer-registry-prometheus")
 
     // gRPC
-    implementation("net.devh:grpc-server-spring-boot-starter:3.1.0.RELEASE")
+    implementation("net.devh:grpc-server-spring-boot-starter:${grpcServerVersion}")
 
     runtimeOnly("com.h2database:h2")
     runtimeOnly("org.postgresql:postgresql")
@@ -41,6 +44,10 @@ dependencies {
     compileOnly("org.projectlombok:lombok")
     annotationProcessor("org.projectlombok:lombok")
     testImplementation("org.springframework.boot:spring-boot-starter-test")
+}
+
+dependencyLocking {
+    lockAllConfigurations()
 }
 tasks.withType<Test> {
     useJUnitPlatform()

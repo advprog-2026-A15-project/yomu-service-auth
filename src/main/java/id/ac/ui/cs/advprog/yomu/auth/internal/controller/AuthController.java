@@ -1,7 +1,6 @@
 package id.ac.ui.cs.advprog.yomu.auth.internal.controller;
 
 import id.ac.ui.cs.advprog.yomu.auth.internal.dto.*;
-import id.ac.ui.cs.advprog.yomu.auth.internal.model.User;
 import id.ac.ui.cs.advprog.yomu.auth.internal.service.AuthService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;

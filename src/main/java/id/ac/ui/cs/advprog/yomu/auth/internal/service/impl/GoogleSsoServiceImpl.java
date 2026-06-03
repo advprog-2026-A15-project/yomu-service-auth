@@ -9,6 +9,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
+import org.springframework.beans.factory.annotation.Autowired;
+
 import java.util.HashMap;
 import java.util.Map;
 
@@ -16,8 +18,11 @@ import java.util.Map;
 @Service
 public class GoogleSsoServiceImpl implements GoogleSsoService {
 
+    private static final String EMAIL = "email";
+
     private final RestTemplate restTemplate;
 
+    @Autowired
     public GoogleSsoServiceImpl() {
         this(new RestTemplate());
     }
@@ -33,17 +38,17 @@ public class GoogleSsoServiceImpl implements GoogleSsoService {
         HttpEntity<String> entity = new HttpEntity<>("parameters", headers);
 
         try {
-            ResponseEntity<Map> response = restTemplate.exchange(
+            ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
                     "https://www.googleapis.com/oauth2/v3/userinfo",
                     HttpMethod.GET,
                     entity,
-                    Map.class
+                    new org.springframework.core.ParameterizedTypeReference<Map<String, Object>>() {}
             );
 
             Map<String, Object> payload = response.getBody();
-            if (payload != null && payload.containsKey("email")) {
+            if (payload != null && payload.containsKey(EMAIL)) {
                 Map<String, String> result = new HashMap<>();
-                result.put("email", (String) payload.get("email"));
+                result.put(EMAIL, (String) payload.get(EMAIL));
                 result.put("name", (String) payload.get("name"));
                 return result;
             } else {

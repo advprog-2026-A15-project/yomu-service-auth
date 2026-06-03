@@ -13,10 +13,11 @@ import java.util.Map;
 public class GlobalExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+    private static final String MESSAGE_KEY = "message";
 
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<Map<String, String>> handleIllegalArgument(IllegalArgumentException ex) {
-        return ResponseEntity.badRequest().body(Map.of("message", ex.getMessage()));
+        return ResponseEntity.badRequest().body(Map.of(MESSAGE_KEY, ex.getMessage()));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -25,13 +26,13 @@ public class GlobalExceptionHandler {
                 .findFirst()
                 .map(e -> e.getDefaultMessage())
                 .orElse("Data tidak valid");
-        return ResponseEntity.badRequest().body(Map.of("message", message));
+        return ResponseEntity.badRequest().body(Map.of(MESSAGE_KEY, message));
     }
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, String>> handleGeneral(Exception ex) {
         log.error("Unhandled exception in auth controller", ex);
         String message = ex.getMessage() != null ? ex.getMessage() : "Terjadi kesalahan internal";
-        return ResponseEntity.internalServerError().body(Map.of("message", message));
+        return ResponseEntity.internalServerError().body(Map.of(MESSAGE_KEY, message));
     }
 }

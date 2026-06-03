@@ -30,6 +30,9 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class AuthServiceImpl implements AuthService {
 
+    private static final String SUCCESS = "success";
+    private static final String FAILURE = "failure";
+
     @Value("${yomu.admin.emails:christna.yosua@ui.ac.id,christian.yosua@ui.ac.id,tirta.rendy@ui.ac.id,nathanael.leander@ui.ac.id,m.adella@ui.ac.id}")
     private String adminEmails;
 
@@ -67,10 +70,10 @@ public class AuthServiceImpl implements AuthService {
             publishUserRegisteredEvent(user);
 
             log.info("Manual registration succeeded for userId={}", user.getId());
-            authMetrics.recordRegister("success");
+            authMetrics.recordRegister(SUCCESS);
             return buildAuthResponse(user);
         } catch (Exception e) {
-            authMetrics.recordRegister("failure");
+            authMetrics.recordRegister(FAILURE);
             throw e;
         }
     }
@@ -91,10 +94,10 @@ public class AuthServiceImpl implements AuthService {
 
             promoteConfiguredAdmin(user);
             log.info("Manual login succeeded for userId={}", user.getId());
-            authMetrics.recordLogin("success", "local");
+            authMetrics.recordLogin(SUCCESS, "local");
             return buildAuthResponse(user);
         } catch (Exception e) {
-            authMetrics.recordLogin("failure", "local");
+            authMetrics.recordLogin(FAILURE, "local");
             throw e;
         }
     }

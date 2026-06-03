@@ -10,6 +10,8 @@ import java.util.concurrent.TimeUnit;
 @Component
 public class AuthMetrics {
 
+    private static final String OUTCOME = "outcome";
+
     private final MeterRegistry meterRegistry;
 
     private final Counter rateLimitHitsCounter;
@@ -25,7 +27,7 @@ public class AuthMetrics {
     public void recordLogin(String outcome, String provider) {
         Counter.builder("yomu_auth_login_total")
                 .description("Total number of login attempts")
-                .tag("outcome", outcome)
+                .tag(OUTCOME, outcome)
                 .tag("provider", provider)
                 .register(meterRegistry)
                 .increment();
@@ -34,7 +36,7 @@ public class AuthMetrics {
     public void recordRegister(String outcome) {
         Counter.builder("yomu_auth_register_total")
                 .description("Total number of registration attempts")
-                .tag("outcome", outcome)
+                .tag(OUTCOME, outcome)
                 .register(meterRegistry)
                 .increment();
     }
@@ -42,7 +44,7 @@ public class AuthMetrics {
     public void recordTokenRefresh(String outcome) {
         Counter.builder("yomu_auth_token_refresh_total")
                 .description("Total number of token refresh attempts")
-                .tag("outcome", outcome)
+                .tag(OUTCOME, outcome)
                 .register(meterRegistry)
                 .increment();
     }

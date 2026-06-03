@@ -104,7 +104,8 @@ class AuthServiceImplTest {
     void register_duplicateUsername_throws() {
         when(userRepository.existsByUsername(USERNAME)).thenReturn(true);
 
-        assertThatThrownBy(() -> authService.register(registerRequest(EMAIL)))
+        RegisterRequest req = registerRequest(EMAIL);
+        assertThatThrownBy(() -> authService.register(req))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Username sudah terdaftar");
     }
@@ -114,7 +115,8 @@ class AuthServiceImplTest {
         when(userRepository.existsByUsername(USERNAME)).thenReturn(false);
         when(userRepository.existsByEmail(EMAIL)).thenReturn(true);
 
-        assertThatThrownBy(() -> authService.register(registerRequest(EMAIL)))
+        RegisterRequest req = registerRequest(EMAIL);
+        assertThatThrownBy(() -> authService.register(req))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Email sudah terdaftar");
     }

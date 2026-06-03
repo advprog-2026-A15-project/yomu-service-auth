@@ -34,7 +34,7 @@ class GoogleSsoServiceImplTest {
             eq("https://www.googleapis.com/oauth2/v3/userinfo"),
             eq(HttpMethod.GET),
             any(HttpEntity.class),
-            eq(Map.class)
+            any(org.springframework.core.ParameterizedTypeReference.class)
         )).thenReturn(ResponseEntity.ok(Map.of(
             "email", "user@test.com",
             "name", "Test User"
@@ -52,7 +52,7 @@ class GoogleSsoServiceImplTest {
             eq("https://www.googleapis.com/oauth2/v3/userinfo"),
             eq(HttpMethod.GET),
             any(HttpEntity.class),
-            eq(Map.class)
+            any(org.springframework.core.ParameterizedTypeReference.class)
         )).thenReturn(ResponseEntity.ok(Map.of("name", "No Email")));
 
         assertThrows(IllegalArgumentException.class, () -> service.verifyToken("token"));
@@ -64,7 +64,7 @@ class GoogleSsoServiceImplTest {
             eq("https://www.googleapis.com/oauth2/v3/userinfo"),
             eq(HttpMethod.GET),
             any(HttpEntity.class),
-            eq(Map.class)
+            any(org.springframework.core.ParameterizedTypeReference.class)
         )).thenThrow(new RestClientException("network error"));
 
         assertThrows(IllegalArgumentException.class, () -> service.verifyToken("token"));
